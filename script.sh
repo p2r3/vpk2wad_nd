@@ -17,6 +17,8 @@ rm -rf ./nb_tools
 # Extract only the assets we might need from the VPK
 mkdir -p materials
 echo "Extracting materials from VPK..."
+mkdir -p materials/anim_wp/framework
+./vpkeditcli "$VPK_PATH" -e "/materials/anim_wp/framework/" -o "./materials/anim_wp/framework"
 mkdir -p materials/carpet
 ./vpkeditcli "$VPK_PATH" -e "/materials/carpet/" -o "./materials/carpet"
 mkdir -p materials/concrete
@@ -29,6 +31,8 @@ mkdir -p materials/fabric
 ./vpkeditcli "$VPK_PATH" -e "/materials/fabric/" -o "./materials/fabric"
 mkdir -p materials/glass
 ./vpkeditcli "$VPK_PATH" -e "/materials/glass/" -o "./materials/glass"
+mkdir -p materials/lights
+./vpkeditcli "$VPK_PATH" -e "/materials/lights/" -o "./materials/lights"
 mkdir -p materials/metal
 ./vpkeditcli "$VPK_PATH" -e "/materials/metal/" -o "./materials/metal"
 mkdir -p materials/moon
