@@ -54,9 +54,22 @@ mkdir -p materials/wallpaper
 mkdir -p materials/wood
 ./vpkeditcli "$VPK_PATH" -e "/materials/wood/" -o "./materials/wood"
 
+# Create files for logging surface properties
+> noportal.txt
+> seethrough.txt
+
 # Find textures pointed to by $basetexture keys in VMTs and move those
 # textures out into "./textures" with the relative path of the VMT:
 find "./materials" -type f -name "*.vmt" | while read -r vmt_file; do
+
+  # Log VMT files that contain specific lines
+  if grep -q '^"%noportal" 1' "$vmt_file"; then
+    echo "${vmt_file:12:-4}" >> noportal.txt
+  fi
+  if grep -q '^"%compilepassbullets" 1' "$vmt_file"; then
+    echo "${vmt_file:12:-4}" >> seethrough.txt
+  fi
+
   # Extract the line containing $basetexture (ignoring case and leading whitespace)
   line=$(grep -i '^\s*\$basetexture' "$vmt_file")
 
@@ -106,18 +119,22 @@ echo "Cleaning up residual files..."
 rm -rf ./materials
 
 # Use vtex2 to extract images from VTFs
-echo "Converting VTF to JPEG..."
-./vtex2 extract -f jpg -r ./textures
+echo "Converting VTF to BMP..."
+./vtex2 extract -f bmp -na -r ./textures
+# Extract again, but this time with alpha on only seethrough surfaces
+while IFS= read -r texture; do
+  ./vtex2 extract -f bmp "./textures/${texture}.vtf"
+done < seethrough.txt
 
-# Rename JPEG files to hashes of their file path
+# Rename BMP files to hashes of their file path
 # This is done to compact texture names to 15 characters for the WAD
-echo "Hashing JPEG paths..."
+echo "Hashing BMP paths..."
 mkdir -p "./video"
-find "./textures" -type f -iname "*.jpg" | while read -r file; do
+find "./textures" -type f -iname "*.bmp" | while read -r file; do
   # Generate a hash of the material path and truncate it to 15 characters
   hash=$(echo -n "${file:11:-4}" | md5sum | cut -c1-15)
   # Construct the new path
-  new_path="./video/$hash.jpg"
+  new_path="./video/$hash.bmp"
   # Move the file
   mv "$file" "$new_path"
   echo "Moved: $file -> $new_path"
@@ -136,13 +153,3 @@ rm -f ./narbaculardrop.wad
 ./WadMaker -nologfile ./video ./narbaculardrop.wad
 # Remove residue WadMaker file
 rm -f ./video/wadmaker.dat
-
-# Convert JPEGs to BMPs for use in Narbacular Drop.
-# Technically, it's possible to go directly from VTF to BMP,
-# but that leads to weird transparent textures and a bulkier WAD (?)
-for file in ./video/*.jpg; do
-  base_name="${file%.*}"
-  convert "$file" "$base_name.bmp"
-  rm -f "$file"
-  echo "Converted: $file -> $base_name.bmp"
-done
