@@ -7,6 +7,9 @@
 
 VPK_PATH="full/path/to/pak01_dir.vpk"
 
+# Use MD5 checksum of VPK as password for models archive
+unzip -P "$(md5sum "${VPK_PATH}" | awk '{print $1}')" nb_p2_models.zip
+
 echo "Downloading original Narbacular Drop WAD..."
 wget https://nuclearmonkeysoftware.com/downloads/narbacular_drop_level_creation_kit.zip
 unzip ./narbacular_drop_level_creation_kit.zip -d ./nb_tools
@@ -148,6 +151,10 @@ rm -rf ./textures
 echo "Bundling textures into WAD file..."
 # First, move the existing WAD textures into the source directory
 ./WadMaker -nologfile ./narbaculardrop.wad ./video
+# If using models from provided ZIP file, resolve a potential texture conflict
+if [ -f ./video/metal_panel4.bmp ]; then
+  rm -f ./video/metal_panel4.png
+fi
 # Then, recreate the ND WAD with all textures, old and new
 rm -f ./narbaculardrop.wad
 ./WadMaker -nologfile ./video ./narbaculardrop.wad
