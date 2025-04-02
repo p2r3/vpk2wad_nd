@@ -9,6 +9,13 @@ VPK_PATH="full/path/to/pak01_dir.vpk"
 
 # Use MD5 checksum of VPK as password for models archive
 unzip -P "$(md5sum "${VPK_PATH}" | awk '{print $1}')" nb_p2_models.zip
+# We can also use that as a way of checking if the VPK is valid
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "Failed to extract models - is the VPK path correct?"
+  echo ""
+  exit 1
+fi
 
 echo "Downloading original Narbacular Drop WAD..."
 wget https://nuclearmonkeysoftware.com/downloads/narbacular_drop_level_creation_kit.zip
@@ -56,25 +63,32 @@ mkdir -p materials/wallpaper
 ./vpkeditcli "$VPK_PATH" -e "/materials/wallpaper/" -o "./materials/wallpaper"
 mkdir -p materials/wood
 ./vpkeditcli "$VPK_PATH" -e "/materials/wood/" -o "./materials/wood"
+mkdir -p materials/effects
+./vpkeditcli "$VPK_PATH" -e "/materials/effects/laserplane.vmt" -o "./materials/effects/laserplane.vmt"
+./vpkeditcli "$VPK_PATH" -e "/materials/effects/laser_group10x.vtf" -o "./materials/effects/laser_group10x.vtf"
 
 # Create files for logging surface properties
 > noportal.txt
 > seethrough.txt
+> translucent.txt
 
 # Find textures pointed to by $basetexture keys in VMTs and move those
 # textures out into "./textures" with the relative path of the VMT:
 find "./materials" -type f -name "*.vmt" | while read -r vmt_file; do
 
   # Log VMT files that contain specific lines
-  if grep -q '^"%noportal" 1' "$vmt_file"; then
+  if grep -q '"%noportal" 1' "$vmt_file"; then
     echo "${vmt_file:12:-4}" >> noportal.txt
   fi
-  if grep -q '^"%compilepassbullets" 1' "$vmt_file"; then
+  if grep -q '"%compilepassbullets" 1' "$vmt_file"; then
     echo "${vmt_file:12:-4}" >> seethrough.txt
+  fi
+  if grep -Eq '(translucent|AlphaTest)' "$vmt_file"; then
+    echo "${vmt_file:12:-4}" >> translucent.txt
   fi
 
   # Extract the line containing $basetexture (ignoring case and leading whitespace)
-  line=$(grep -i '^\s*\$basetexture' "$vmt_file")
+  line=$(grep -i '^\s*\$basetexture ' "$vmt_file")
 
   # Proceed only if a basetexture value was found
   if [ ! -n "$line" ]; then
@@ -124,10 +138,11 @@ rm -rf ./materials
 # Use vtex2 to extract images from VTFs
 echo "Converting VTF to BMP..."
 ./vtex2 extract -f bmp -na -r ./textures
-# Extract again, but this time with alpha on only seethrough surfaces
+# Extract again, but this time with alpha on only translucent surfaces
 while IFS= read -r texture; do
   ./vtex2 extract -f bmp "./textures/${texture}.vtf"
-done < seethrough.txt
+done < translucent.txt
+rm -f translucent.txt
 
 # Rename BMP files to hashes of their file path
 # This is done to compact texture names to 15 characters for the WAD
